@@ -131,6 +131,17 @@ async function handleUpsertBlobStorageIntegration(
       integrationId,
       createId: validatedData.projectId,
       createExportSource,
+      persistAuditLog: (tx, resourceId) =>
+        auditLog(
+          {
+            action: "update",
+            resourceType: "blobStorageIntegration",
+            resourceId,
+            apiKeyId: scope.apiKeyId,
+            orgId: scope.orgId,
+          },
+          tx,
+        ),
       data: {
         type: validatedData.type,
         bucketName: validatedData.bucketName,
@@ -162,14 +173,6 @@ async function handleUpsertBlobStorageIntegration(
     if (!concurrentCreate) throw error;
     integration = await upsertIntegration(validatedData.projectId);
   }
-
-  await auditLog({
-    action: "update",
-    resourceType: "blobStorageIntegration",
-    resourceId: integration.id,
-    apiKeyId: scope.apiKeyId,
-    orgId: scope.orgId,
-  });
 
   // Transform to API response format, exclude secretAccessKey
   const responseData: BlobStorageIntegrationResponseType = {

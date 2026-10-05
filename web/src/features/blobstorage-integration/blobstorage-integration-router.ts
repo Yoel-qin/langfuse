@@ -237,6 +237,16 @@ export const blobStorageIntegrationRouter = createTRPCRouter({
           projectId,
           integrationId,
           createExportSource,
+          persistAuditLog: (tx, resourceId) =>
+            auditLog(
+              {
+                session: ctx.session,
+                action: "update",
+                resourceType: "blobStorageIntegration",
+                resourceId,
+              },
+              tx,
+            ),
           data: {
             type: rest.type,
             bucketName: rest.bucketName,
@@ -261,13 +271,6 @@ export const blobStorageIntegrationRouter = createTRPCRouter({
               ? rest.mediaStorageEnabled
               : undefined,
           },
-        });
-
-        await auditLog({
-          session: ctx.session,
-          action: "update",
-          resourceType: "blobStorageIntegration",
-          resourceId: integration.id,
         });
 
         return integration;
@@ -296,24 +299,29 @@ export const blobStorageIntegrationRouter = createTRPCRouter({
           session: ctx.session,
           projectId: input.projectId,
         });
-        const result = await ctx.prisma.blobStorageIntegration.deleteMany({
-          where: {
-            id: input.integrationId,
-            projectId: input.projectId,
-          },
-        });
-        if (result.count === 0) {
-          throw new TRPCError({
-            code: "NOT_FOUND",
-            message: "Blob storage integration not found",
+        await ctx.prisma.$transaction(async (tx) => {
+          const result = await tx.blobStorageIntegration.deleteMany({
+            where: {
+              id: input.integrationId,
+              projectId: input.projectId,
+            },
           });
-        }
+          if (result.count === 0) {
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: "Blob storage integration not found",
+            });
+          }
 
-        await auditLog({
-          session: ctx.session,
-          action: "delete",
-          resourceType: "blobStorageIntegration",
-          resourceId: input.integrationId,
+          await auditLog(
+            {
+              session: ctx.session,
+              action: "delete",
+              resourceType: "blobStorageIntegration",
+              resourceId: input.integrationId,
+            },
+            tx,
+          );
         });
       } catch (e) {
         if (e instanceof TRPCError) {

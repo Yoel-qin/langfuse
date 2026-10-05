@@ -1,4 +1,4 @@
-import { type PrismaClient } from "@langfuse/shared/src/db";
+import { type Prisma, type PrismaClient } from "@langfuse/shared/src/db";
 import {
   BlobStorageExportMode,
   BlobStorageIntegrationType,
@@ -67,6 +67,10 @@ export async function upsertBlobStorageIntegration(params: {
   // through to the Prisma column default (TRACES_OBSERVATIONS). An UPDATE keeps
   // using data.exportSource, where undefined preserves the persisted value.
   createExportSource: AnalyticsIntegrationExportSource;
+  persistAuditLog: (
+    tx: Prisma.TransactionClient,
+    integrationId: string,
+  ) => Promise<void>;
 }) {
   const { prisma, projectId, integrationId, createId, data } = params;
 
@@ -202,6 +206,8 @@ export async function upsertBlobStorageIntegration(params: {
       existingIntegration: existing,
       result,
     });
+
+    await params.persistAuditLog(tx, result.id);
 
     return result;
   });
