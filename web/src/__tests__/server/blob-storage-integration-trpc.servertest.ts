@@ -525,6 +525,70 @@ describe("Blob Storage Integration tRPC Router", () => {
     });
   });
 
+  describe("external media object test", () => {
+    it("proves ranged GetObject access and returns a browser-testable signed URL", async () => {
+      const verifyObjectAccess = vi.fn().mockResolvedValue(undefined);
+      const getSignedUrl = vi.fn().mockResolvedValue("https://signed.example");
+      (StorageServiceFactory.getInstance as Mock).mockReturnValue({
+        verifyObjectAccess,
+        getSignedUrl,
+      });
+      const { caller, project } = await prepare({
+        externalMediaStorage: true,
+      });
+      const integration = await createIntegration({ projectId: project.id });
+      await prisma.blobStorageIntegration.update({
+        where: { id: integration.id },
+        data: {
+          bucketName: "media-bucket",
+          mediaPrefix: "customer/",
+          mediaStorageEnabled: true,
+        },
+      });
+
+      const result =
+        await caller.blobStorageIntegration.testExternalMediaObject({
+          projectId: project.id,
+          integrationId: integration.id,
+          uri: "s3://media-bucket/customer/image.png",
+        });
+
+      expect(result.signedUrl).toBe("https://signed.example");
+      expect(verifyObjectAccess).toHaveBeenCalledWith("customer/image.png");
+      expect(getSignedUrl).toHaveBeenCalledWith(
+        "customer/image.png",
+        300,
+        false,
+      );
+    });
+
+    it("rejects objects outside the selected integration media prefix before storage access", async () => {
+      const { caller, project } = await prepare({
+        externalMediaStorage: true,
+      });
+      const integration = await createIntegration({ projectId: project.id });
+      await prisma.blobStorageIntegration.update({
+        where: { id: integration.id },
+        data: {
+          mediaPrefix: "allowed/",
+          mediaStorageEnabled: true,
+        },
+      });
+
+      await expect(
+        caller.blobStorageIntegration.testExternalMediaObject({
+          projectId: project.id,
+          integrationId: integration.id,
+          uri: "s3://test-bucket/outside/image.png",
+        }),
+      ).rejects.toMatchObject({
+        code: "BAD_REQUEST",
+        message: expect.stringContaining("media prefix"),
+      });
+      expect(StorageServiceFactory.getInstance).not.toHaveBeenCalled();
+    });
+  });
+
   describe("delete", () => {
     it("returns not found when the integration does not exist", async () => {
       const { caller, project } = await prepare();

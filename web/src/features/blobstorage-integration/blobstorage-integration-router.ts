@@ -28,7 +28,10 @@ import {
 import { randomUUID } from "crypto";
 import { decrypt } from "@langfuse/shared/encryption";
 import { getContextualFeatureFlags } from "@/src/features/feature-flags/utils";
-import { resolveExternalMediaUrl } from "@/src/features/blobstorage-integration/externalMediaService";
+import {
+  resolveExternalMediaUrl,
+  testExternalMediaObject,
+} from "@/src/features/blobstorage-integration/externalMediaService";
 import {
   AnalyticsIntegrationExportSource,
   BlobStorageIntegrationType,
@@ -114,6 +117,52 @@ export const blobStorageIntegrationRouter = createTRPCRouter({
         throw new TRPCError({
           code: "NOT_FOUND",
           message: "External media is not available",
+        });
+      }
+    }),
+
+  testExternalMediaObject: protectedProjectProcedure
+    .input(
+      z.object({
+        projectId: z.string(),
+        integrationId: z.string(),
+        uri: z.string(),
+      }),
+    )
+    .mutation(async ({ input, ctx }) => {
+      assertBlobStorageIntegrationAccess({
+        session: ctx.session,
+        projectId: input.projectId,
+      });
+      const isEnabled =
+        ctx.session.environment.enableExperimentalFeatures ||
+        getContextualFeatureFlags(ctx.session.user, {
+          projectId: input.projectId,
+        })?.externalMediaStorage === true;
+      if (!isEnabled) {
+        throw new TRPCError({ code: "NOT_FOUND" });
+      }
+
+      try {
+        return await testExternalMediaObject({
+          prisma: ctx.prisma,
+          projectId: input.projectId,
+          integrationId: input.integrationId,
+          uri: input.uri,
+        });
+      } catch (error) {
+        if (error instanceof InvalidRequestError) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: error.message,
+          });
+        }
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `Storage access failed: ${getErrorMessage(
+            error,
+            "The object could not be read",
+          )}`,
         });
       }
     }),
