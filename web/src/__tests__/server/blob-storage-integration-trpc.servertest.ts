@@ -174,6 +174,7 @@ const baseConfig = {
   accessKeyId: "AKIA123456789",
   secretAccessKey: "secret123456789",
   prefix: "exports/",
+  mediaPrefix: "media/",
   exportFrequency: "daily" as const,
   enabled: true,
   forcePathStyle: false,
@@ -387,13 +388,16 @@ describe("Blob Storage Integration tRPC Router", () => {
       const integration = await caller.blobStorageIntegration.update({
         projectId: project.id,
         ...baseConfig,
+        prefix: "",
         mediaStorageEnabled: true,
       });
 
       expect(integration.mediaStorageEnabled).toBe(true);
+      expect(integration.prefix).toBe("");
+      expect(integration.mediaPrefix).toBe("media/");
     });
 
-    it("requires a scoped prefix when media storage is enabled", async () => {
+    it("requires a scoped media prefix when media storage is enabled", async () => {
       const { caller, project } = await prepare({
         externalMediaStorage: true,
       });
@@ -402,7 +406,7 @@ describe("Blob Storage Integration tRPC Router", () => {
         caller.blobStorageIntegration.update({
           projectId: project.id,
           ...baseConfig,
-          prefix: "",
+          mediaPrefix: "",
           mediaStorageEnabled: true,
         }),
       ).rejects.toMatchObject({
@@ -463,7 +467,7 @@ describe("Blob Storage Integration tRPC Router", () => {
         where: { id: integration.id },
         data: {
           bucketName: "media-bucket",
-          prefix: "customer/",
+          mediaPrefix: "customer/",
           mediaStorageEnabled: true,
         },
       });
@@ -488,7 +492,7 @@ describe("Blob Storage Integration tRPC Router", () => {
       const integration = await createIntegration({ projectId: project.id });
       await prisma.blobStorageIntegration.update({
         where: { id: integration.id },
-        data: { mediaStorageEnabled: true },
+        data: { mediaPrefix: "test/", mediaStorageEnabled: true },
       });
 
       await expect(
@@ -508,7 +512,7 @@ describe("Blob Storage Integration tRPC Router", () => {
       const second = await createIntegration({ projectId: project.id });
       await prisma.blobStorageIntegration.updateMany({
         where: { id: { in: [first.id, second.id] } },
-        data: { mediaStorageEnabled: true },
+        data: { mediaPrefix: "test/", mediaStorageEnabled: true },
       });
 
       await expect(

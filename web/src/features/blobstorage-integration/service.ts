@@ -22,6 +22,7 @@ type UpsertBlobStorageIntegrationInput = {
   accessKeyId: string | null;
   secretAccessKey: string | null; // plain text — encrypted by this service
   prefix: string;
+  mediaPrefix?: string | null;
   exportFrequency: string;
   enabled: boolean;
   forcePathStyle: boolean;
@@ -102,6 +103,10 @@ export async function upsertBlobStorageIntegration(params: {
     exportMode: data.exportMode,
     exportStartDate: data.exportStartDate,
   });
+  const mediaPrefix =
+    data.mediaPrefix === undefined
+      ? undefined
+      : data.mediaPrefix.trim() || null;
 
   const writeData = {
     type: data.type,
@@ -110,6 +115,7 @@ export async function upsertBlobStorageIntegration(params: {
     region,
     accessKeyId,
     prefix: data.prefix,
+    mediaPrefix,
     exportFrequency: data.exportFrequency,
     enabled: data.enabled,
     forcePathStyle: data.forcePathStyle,
@@ -142,6 +148,7 @@ export async function upsertBlobStorageIntegration(params: {
             createdAt: true,
             exportSource: true,
             mediaStorageEnabled: true,
+            mediaPrefix: true,
           },
         })
       : null;
@@ -152,9 +159,11 @@ export async function upsertBlobStorageIntegration(params: {
 
     const mediaStorageEnabled =
       data.mediaStorageEnabled ?? existing?.mediaStorageEnabled ?? false;
-    if (mediaStorageEnabled && !data.prefix) {
+    const effectiveMediaPrefix =
+      mediaPrefix === undefined ? existing?.mediaPrefix : mediaPrefix;
+    if (mediaStorageEnabled && !effectiveMediaPrefix) {
       throw new InvalidRequestError(
-        "A prefix is required for external media storage",
+        "A media prefix is required for external media storage",
       );
     }
 
