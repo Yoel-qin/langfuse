@@ -304,6 +304,43 @@ describe("Blob Storage Integrations API", () => {
       expect(savedIntegration?.bucketName).toBe("test-bucket");
     });
 
+    it("should handle concurrent creates idempotently", async () => {
+      const requestBody = {
+        ...validBlobStorageConfig,
+        projectId: testProject1Id,
+      };
+      const auth = createBasicAuthHeader(testApiKey, testApiSecretKey);
+
+      const responses = await Promise.all([
+        makeZodVerifiedAPICall(
+          BlobStorageIntegrationResponseSchema,
+          "PUT",
+          "/api/public/integrations/blob-storage",
+          requestBody,
+          auth,
+          200,
+        ),
+        makeZodVerifiedAPICall(
+          BlobStorageIntegrationResponseSchema,
+          "PUT",
+          "/api/public/integrations/blob-storage",
+          requestBody,
+          auth,
+          200,
+        ),
+      ]);
+
+      expect(responses.map(({ body }) => body.id)).toEqual([
+        testProject1Id,
+        testProject1Id,
+      ]);
+      await expect(
+        prisma.blobStorageIntegration.count({
+          where: { projectId: testProject1Id },
+        }),
+      ).resolves.toBe(1);
+    });
+
     it("should update an existing blob storage integration", async () => {
       // Backdated: the row keeps the legacy exportSource column default,
       // which only grandfathered (pre-integration-cutoff) rows may carry.
