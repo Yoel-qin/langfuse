@@ -176,7 +176,6 @@ export async function upsertBlobStorageIntegration(params: {
           data: {
             ...writeData,
             ...(createId ? { id: createId } : {}),
-            ...(createId === projectId ? { legacyProjectId: projectId } : {}),
             mediaStorageEnabled: data.mediaStorageEnabled ?? false,
             exportSource: params.createExportSource,
             // Parquet is the default export format; apply it when the caller omits
