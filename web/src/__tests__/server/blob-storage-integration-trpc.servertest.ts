@@ -23,10 +23,8 @@ import { env as sharedEnv } from "@langfuse/shared/src/env";
 import { auditLog } from "@/src/features/audit-logs/server";
 
 vi.mock("@/src/features/audit-logs/server", async (importOriginal) => {
-  const actual =
-    await importOriginal<typeof import("@/src/features/audit-logs/server")>();
+  const actual = await importOriginal<{ auditLog: typeof auditLog }>();
   return {
-    ...actual,
     auditLog: vi.fn(actual.auditLog),
   };
 });

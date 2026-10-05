@@ -22,10 +22,8 @@ import {
 import { decrypt } from "@langfuse/shared/encryption";
 
 vi.mock("@/src/features/audit-logs/server", async (importOriginal) => {
-  const actual =
-    await importOriginal<typeof import("@/src/features/audit-logs/server")>();
+  const actual = await importOriginal<{ auditLog: typeof auditLog }>();
   return {
-    ...actual,
     auditLog: vi.fn(actual.auditLog),
   };
 });
