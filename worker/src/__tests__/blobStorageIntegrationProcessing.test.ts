@@ -161,6 +161,7 @@ describe("BlobStorageIntegrationProcessingJob", () => {
 
       await prisma.blobStorageIntegration.create({
         data: {
+          id: projectId,
           projectId,
           type: BlobStorageIntegrationType.S3,
           bucketName,
@@ -257,6 +258,50 @@ describe("BlobStorageIntegrationProcessingJob", () => {
         }),
       ).toMatchObject({ lastError: expect.stringMatching(/enriched/i) });
     });
+
+    it("does not process a replacement integration for a legacy job after the migrated row is deleted", async () => {
+      (env as any).LANGFUSE_MIGRATION_V4_WRITE_MODE = "legacy";
+      const { projectId } = await createOrgProjectAndApiKey();
+      const integrationData = {
+        projectId,
+        type: BlobStorageIntegrationType.S3,
+        bucketName,
+        prefix: projectId,
+        accessKeyId,
+        secretAccessKey: encrypt(secretAccessKey),
+        region: region ? region : "auto",
+        endpoint: endpoint ? endpoint : null,
+        forcePathStyle:
+          env.LANGFUSE_S3_EVENT_UPLOAD_FORCE_PATH_STYLE === "true",
+        enabled: true,
+        exportFrequency: "daily",
+        exportSource: "EVENTS" as const,
+        lastSyncAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
+      };
+
+      await prisma.blobStorageIntegration.create({
+        data: { ...integrationData, id: projectId },
+      });
+      const replacement = await prisma.blobStorageIntegration.create({
+        data: integrationData,
+      });
+      await prisma.blobStorageIntegration.delete({
+        where: { id: projectId },
+      });
+
+      await expect(
+        handleBlobStorageIntegrationProjectJob({
+          data: { payload: { projectId } },
+        } as Job),
+      ).resolves.toBeUndefined();
+
+      expect(
+        await prisma.blobStorageIntegration.findUniqueOrThrow({
+          where: { id: replacement.id },
+          select: { lastError: true },
+        }),
+      ).toEqual({ lastError: null });
+    });
   });
 
   // LFE-10148: a persisted legacy export source on an events_only deployment
@@ -276,6 +321,7 @@ describe("BlobStorageIntegrationProcessingJob", () => {
 
       await prisma.blobStorageIntegration.create({
         data: {
+          id: projectId,
           projectId,
           type: BlobStorageIntegrationType.S3,
           bucketName,
@@ -324,6 +370,7 @@ describe("BlobStorageIntegrationProcessingJob", () => {
 
       await prisma.blobStorageIntegration.create({
         data: {
+          id: projectId,
           projectId,
           type: BlobStorageIntegrationType.S3,
           bucketName,
@@ -380,6 +427,7 @@ describe("BlobStorageIntegrationProcessingJob", () => {
     const createIntegration = async (projectId: string) => {
       await prisma.blobStorageIntegration.create({
         data: {
+          id: projectId,
           projectId,
           type: BlobStorageIntegrationType.S3,
           bucketName,
@@ -467,6 +515,7 @@ describe("BlobStorageIntegrationProcessingJob", () => {
 
       await prisma.blobStorageIntegration.create({
         data: {
+          id: projectId,
           projectId,
           type: BlobStorageIntegrationType.S3,
           bucketName,
@@ -623,6 +672,7 @@ describe("BlobStorageIntegrationProcessingJob", () => {
     const createIntegration = async (projectId: string) => {
       await prisma.blobStorageIntegration.create({
         data: {
+          id: projectId,
           projectId,
           type: BlobStorageIntegrationType.S3,
           bucketName,
@@ -765,6 +815,7 @@ describe("BlobStorageIntegrationProcessingJob", () => {
     ) => {
       await prisma.blobStorageIntegration.create({
         data: {
+          id: projectId,
           projectId,
           type: BlobStorageIntegrationType.S3,
           bucketName,
@@ -863,6 +914,7 @@ describe("BlobStorageIntegrationProcessingJob", () => {
     // Setup an integration but disabled
     await prisma.blobStorageIntegration.create({
       data: {
+        id: projectId,
         projectId,
         type: BlobStorageIntegrationType.S3,
         bucketName,
@@ -898,6 +950,7 @@ describe("BlobStorageIntegrationProcessingJob", () => {
 
     await prisma.blobStorageIntegration.create({
       data: {
+        id: projectId,
         projectId,
         type: BlobStorageIntegrationType.S3,
         bucketName,
@@ -988,6 +1041,7 @@ describe("BlobStorageIntegrationProcessingJob", () => {
       // Create integration
       await prisma.blobStorageIntegration.create({
         data: {
+          id: projectId,
           projectId,
           type: BlobStorageIntegrationType.S3,
           bucketName,
@@ -1284,6 +1338,7 @@ describe("BlobStorageIntegrationProcessingJob", () => {
 
       await prisma.blobStorageIntegration.create({
         data: {
+          id: projectId,
           projectId,
           type: BlobStorageIntegrationType.S3,
           bucketName,
@@ -1361,6 +1416,7 @@ describe("BlobStorageIntegrationProcessingJob", () => {
 
       await prisma.blobStorageIntegration.create({
         data: {
+          id: projectId,
           projectId,
           type: BlobStorageIntegrationType.S3,
           bucketName,
@@ -1426,6 +1482,7 @@ describe("BlobStorageIntegrationProcessingJob", () => {
 
       await prisma.blobStorageIntegration.create({
         data: {
+          id: projectId,
           projectId,
           type: BlobStorageIntegrationType.S3,
           bucketName,
@@ -1642,6 +1699,7 @@ describe("BlobStorageIntegrationProcessingJob", () => {
 
       await prisma.blobStorageIntegration.create({
         data: {
+          id: projectId,
           projectId,
           type: BlobStorageIntegrationType.S3,
           bucketName,
@@ -1737,6 +1795,7 @@ describe("BlobStorageIntegrationProcessingJob", () => {
         // Create integration with FULL_HISTORY mode and no lastSyncAt
         await prisma.blobStorageIntegration.create({
           data: {
+            id: projectId,
             projectId,
             type: BlobStorageIntegrationType.S3,
             bucketName,
@@ -1814,6 +1873,7 @@ describe("BlobStorageIntegrationProcessingJob", () => {
       // Create integration with FROM_TODAY mode
       await prisma.blobStorageIntegration.create({
         data: {
+          id: projectId,
           projectId,
           type: BlobStorageIntegrationType.S3,
           bucketName,
@@ -1878,6 +1938,7 @@ describe("BlobStorageIntegrationProcessingJob", () => {
       // Create integration with FROM_CUSTOM_DATE mode
       await prisma.blobStorageIntegration.create({
         data: {
+          id: projectId,
           projectId,
           type: BlobStorageIntegrationType.S3,
           bucketName,
@@ -1938,6 +1999,7 @@ describe("BlobStorageIntegrationProcessingJob", () => {
         // Create integration with FULL_HISTORY and hourly frequency (first export)
         await prisma.blobStorageIntegration.create({
           data: {
+            id: projectId,
             projectId,
             type: BlobStorageIntegrationType.S3,
             bucketName,
@@ -2017,6 +2079,7 @@ describe("BlobStorageIntegrationProcessingJob", () => {
       // Create integration with hourly frequency starting 2 days ago
       await prisma.blobStorageIntegration.create({
         data: {
+          id: projectId,
           projectId,
           type: BlobStorageIntegrationType.S3,
           bucketName,
@@ -2071,6 +2134,7 @@ describe("BlobStorageIntegrationProcessingJob", () => {
 
       await prisma.blobStorageIntegration.create({
         data: {
+          id: projectId,
           projectId,
           type: BlobStorageIntegrationType.S3,
           bucketName,
@@ -2146,6 +2210,7 @@ describe("BlobStorageIntegrationProcessingJob", () => {
 
       await prisma.blobStorageIntegration.create({
         data: {
+          id: projectId,
           projectId,
           type: BlobStorageIntegrationType.S3,
           bucketName,
@@ -2208,6 +2273,7 @@ describe("BlobStorageIntegrationProcessingJob", () => {
       // Create integration with lastSyncAt 1 hour ago (within normal range)
       await prisma.blobStorageIntegration.create({
         data: {
+          id: projectId,
           projectId,
           type: BlobStorageIntegrationType.S3,
           bucketName,
@@ -2270,6 +2336,7 @@ describe("BlobStorageIntegrationProcessingJob", () => {
 
         await prisma.blobStorageIntegration.create({
           data: {
+            id: projectId,
             projectId,
             type: BlobStorageIntegrationType.S3,
             bucketName,
@@ -2324,6 +2391,7 @@ describe("BlobStorageIntegrationProcessingJob", () => {
 
         await prisma.blobStorageIntegration.create({
           data: {
+            id: projectId,
             projectId,
             type: BlobStorageIntegrationType.S3,
             bucketName,
@@ -2388,6 +2456,7 @@ describe("BlobStorageIntegrationProcessingJob", () => {
 
         await prisma.blobStorageIntegration.create({
           data: {
+            id: projectId,
             projectId,
             type: BlobStorageIntegrationType.S3,
             bucketName,
@@ -2447,6 +2516,7 @@ describe("BlobStorageIntegrationProcessingJob", () => {
 
         await prisma.blobStorageIntegration.create({
           data: {
+            id: projectId,
             projectId,
             type: BlobStorageIntegrationType.S3,
             bucketName,
@@ -2572,6 +2642,7 @@ describe("BlobStorageIntegrationProcessingJob", () => {
 
         await prisma.blobStorageIntegration.create({
           data: {
+            id: projectId,
             projectId,
             type: BlobStorageIntegrationType.S3,
             bucketName,
@@ -2635,6 +2706,7 @@ describe("BlobStorageIntegrationProcessingJob", () => {
 
           await prisma.blobStorageIntegration.create({
             data: {
+              id: projectId,
               projectId,
               type: BlobStorageIntegrationType.S3,
               bucketName,
@@ -2697,6 +2769,7 @@ describe("BlobStorageIntegrationProcessingJob", () => {
 
           await prisma.blobStorageIntegration.create({
             data: {
+              id: projectId,
               projectId,
               type: BlobStorageIntegrationType.S3,
               bucketName,
@@ -2763,6 +2836,7 @@ describe("BlobStorageIntegrationProcessingJob", () => {
 
           await prisma.blobStorageIntegration.create({
             data: {
+              id: projectId,
               projectId,
               type: BlobStorageIntegrationType.S3,
               bucketName,
@@ -3005,6 +3079,7 @@ describe("BlobStorageIntegrationProcessingJob", () => {
 
       await prisma.blobStorageIntegration.create({
         data: {
+          id: projectId,
           projectId,
           type: BlobStorageIntegrationType.S3,
           bucketName,
@@ -3075,6 +3150,7 @@ describe("BlobStorageIntegrationProcessingJob", () => {
 
       await prisma.blobStorageIntegration.create({
         data: {
+          id: projectId,
           projectId,
           type: BlobStorageIntegrationType.S3,
           bucketName,
