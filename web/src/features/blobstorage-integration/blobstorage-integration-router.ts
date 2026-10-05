@@ -273,18 +273,24 @@ export const blobStorageIntegrationRouter = createTRPCRouter({
           session: ctx.session,
           projectId: input.projectId,
         });
+        const result = await ctx.prisma.blobStorageIntegration.deleteMany({
+          where: {
+            id: input.integrationId,
+            projectId: input.projectId,
+          },
+        });
+        if (result.count === 0) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Blob storage integration not found",
+          });
+        }
+
         await auditLog({
           session: ctx.session,
           action: "delete",
           resourceType: "blobStorageIntegration",
           resourceId: input.integrationId,
-        });
-
-        await ctx.prisma.blobStorageIntegration.deleteMany({
-          where: {
-            id: input.integrationId,
-            projectId: input.projectId,
-          },
         });
       } catch (e) {
         if (e instanceof TRPCError) {

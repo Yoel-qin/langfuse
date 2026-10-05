@@ -1,5 +1,5 @@
 import { withMiddlewares } from "@/src/features/public-api/server/withMiddlewares";
-import { prisma } from "@langfuse/shared/src/db";
+import { Prisma, prisma } from "@langfuse/shared/src/db";
 import { type NextApiRequest, type NextApiResponse } from "next";
 import {
   CreateBlobStorageIntegrationRequest,
@@ -103,10 +103,8 @@ async function handleUpsertBlobStorageIntegration(
   // persisted exportSource when it is omitted (partial PUT), so a stale
   // enriched value is rejected.
   const existingIntegration = await prisma.blobStorageIntegration.findFirst({
-    where: {
-      id: validatedData.projectId,
-      projectId: validatedData.projectId,
-    },
+    where: { projectId: validatedData.projectId },
+    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
     select: { id: true, createdAt: true, exportSource: true },
   });
 
@@ -124,38 +122,51 @@ async function handleUpsertBlobStorageIntegration(
     existingIntegration,
   });
 
+  const upsertIntegration = (integrationId?: string) =>
+    upsertBlobStorageIntegration({
+      prisma,
+      projectId: validatedData.projectId,
+      integrationId,
+      createId: validatedData.projectId,
+      createExportSource,
+      data: {
+        type: validatedData.type,
+        bucketName: validatedData.bucketName,
+        endpoint: validatedData.endpoint || null,
+        region: validatedData.region,
+        accessKeyId: validatedData.accessKeyId || null,
+        secretAccessKey: validatedData.secretAccessKey ?? null,
+        prefix: validatedData.prefix,
+        exportFrequency: validatedData.exportFrequency,
+        enabled: validatedData.enabled,
+        forcePathStyle: validatedData.forcePathStyle,
+        fileType: validatedData.fileType,
+        exportMode: validatedData.exportMode,
+        exportStartDate: validatedData.exportStartDate ?? null,
+        compressed: validatedData.compressed,
+        exportSource: internalExportSource,
+        exportFieldGroups: validatedData.exportFieldGroups ?? undefined,
+      },
+    });
+
+  let integration: Awaited<ReturnType<typeof upsertIntegration>>;
+  try {
+    integration = await upsertIntegration(existingIntegration?.id);
+  } catch (error) {
+    const concurrentCreate =
+      !existingIntegration &&
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2002";
+    if (!concurrentCreate) throw error;
+    integration = await upsertIntegration(validatedData.projectId);
+  }
+
   await auditLog({
     action: "update",
     resourceType: "blobStorageIntegration",
-    resourceId: validatedData.projectId,
+    resourceId: integration.id,
     apiKeyId: scope.apiKeyId,
     orgId: scope.orgId,
-  });
-
-  const integration = await upsertBlobStorageIntegration({
-    prisma,
-    projectId: validatedData.projectId,
-    integrationId: existingIntegration?.id,
-    createId: validatedData.projectId,
-    createExportSource,
-    data: {
-      type: validatedData.type,
-      bucketName: validatedData.bucketName,
-      endpoint: validatedData.endpoint || null,
-      region: validatedData.region,
-      accessKeyId: validatedData.accessKeyId || null,
-      secretAccessKey: validatedData.secretAccessKey ?? null,
-      prefix: validatedData.prefix,
-      exportFrequency: validatedData.exportFrequency,
-      enabled: validatedData.enabled,
-      forcePathStyle: validatedData.forcePathStyle,
-      fileType: validatedData.fileType,
-      exportMode: validatedData.exportMode,
-      exportStartDate: validatedData.exportStartDate ?? null,
-      compressed: validatedData.compressed,
-      exportSource: internalExportSource,
-      exportFieldGroups: validatedData.exportFieldGroups ?? undefined,
-    },
   });
 
   // Transform to API response format, exclude secretAccessKey

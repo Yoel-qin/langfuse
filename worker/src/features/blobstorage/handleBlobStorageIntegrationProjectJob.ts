@@ -1225,9 +1225,10 @@ export const handleBlobStorageIntegrationProjectJob = async (
   const blobStorageIntegration = await prisma.blobStorageIntegration.findFirst({
     where: {
       projectId,
-      ...(integrationId ? { id: integrationId } : {}),
+      // Existing rows were migrated with id = projectId. Restrict old queued
+      // jobs to that row so a replacement destination is never selected.
+      id: integrationId ?? projectId,
     },
-    orderBy: { createdAt: "asc" },
   });
 
   if (!blobStorageIntegration) {

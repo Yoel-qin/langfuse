@@ -313,6 +313,25 @@ describe("Blob Storage Integration tRPC Router", () => {
         }),
       ).resolves.not.toBeNull();
     });
+
+    it("rejects duplicate export destinations within a project", async () => {
+      const { caller, project } = await prepare();
+
+      await caller.blobStorageIntegration.update({
+        projectId: project.id,
+        ...baseConfig,
+      });
+
+      await expect(
+        caller.blobStorageIntegration.update({
+          projectId: project.id,
+          ...baseConfig,
+        }),
+      ).rejects.toMatchObject({
+        code: "BAD_REQUEST",
+        message: expect.stringContaining("already uses this destination"),
+      });
+    });
   });
 
   describe("external media storage feature gate", () => {
@@ -451,6 +470,19 @@ describe("Blob Storage Integration tRPC Router", () => {
         }),
       ).rejects.toMatchObject({ code: "NOT_FOUND" });
       expect(StorageServiceFactory.getInstance).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("delete", () => {
+    it("returns not found when the integration does not exist", async () => {
+      const { caller, project } = await prepare();
+
+      await expect(
+        caller.blobStorageIntegration.delete({
+          projectId: project.id,
+          integrationId: "missing-integration",
+        }),
+      ).rejects.toMatchObject({ code: "NOT_FOUND" });
     });
   });
 

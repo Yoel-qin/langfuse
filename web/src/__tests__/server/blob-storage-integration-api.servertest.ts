@@ -346,6 +346,11 @@ describe("Blob Storage Integrations API", () => {
       expect(response.body.bucketName).toBe("updated-bucket");
       expect(response.body.enabled).toBe(true);
       expect(response.body.exportFrequency).toBe("weekly");
+      await expect(
+        prisma.blobStorageIntegration.count({
+          where: { projectId: testProject1Id },
+        }),
+      ).resolves.toBe(1);
     });
 
     it("should validate required fields", async () => {
