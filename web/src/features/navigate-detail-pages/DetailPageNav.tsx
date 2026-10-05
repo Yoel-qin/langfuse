@@ -189,7 +189,7 @@ export const DetailPageNav = (props: {
                 }
               }}
             >
-              <ArrowUp className="icon-base" />
+              <ArrowUp className="icon-base text-icon-foreground" />
               <span className="hidden md:inline-flex">
                 <KeyboardShortcut keys={["K"]} />
               </span>
@@ -215,7 +215,7 @@ export const DetailPageNav = (props: {
                 }
               }}
             >
-              <ArrowDown className="icon-base" />
+              <ArrowDown className="icon-base text-icon-foreground" />
               <span className="hidden md:inline-flex">
                 <KeyboardShortcut keys={["J"]} />
               </span>

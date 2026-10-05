@@ -175,9 +175,9 @@ function TracePanelNavigationHeaderExpanded({
     <>
       <DropdownMenuItem onSelect={handleToggleTreeNodes}>
         {isEverythingCollapsed ? (
-          <UnfoldVertical className="icon-base mr-2" />
+          <UnfoldVertical className="icon-base text-icon-foreground mr-2" />
         ) : (
-          <FoldVertical className="icon-base mr-2" />
+          <FoldVertical className="icon-base text-icon-foreground mr-2" />
         )}
         {isEverythingCollapsed ? "Expand all" : "Collapse all"}
       </DropdownMenuItem>
@@ -243,9 +243,9 @@ function TracePanelNavigationHeaderExpanded({
                 className="h-7 w-7"
               >
                 {isEverythingCollapsed ? (
-                  <UnfoldVertical className="icon-base" />
+                  <UnfoldVertical className="icon-base text-icon-foreground" />
                 ) : (
-                  <FoldVertical className="icon-base" />
+                  <FoldVertical className="icon-base text-icon-foreground" />
                 )}
               </Button>
 
@@ -262,7 +262,7 @@ function TracePanelNavigationHeaderExpanded({
                     aria-label="More options"
                     className="h-7 w-7"
                   >
-                    <MoreHorizontal className="icon-base" />
+                    <MoreHorizontal className="icon-base text-icon-foreground" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="center" className="w-64">

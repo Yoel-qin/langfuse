@@ -323,7 +323,7 @@ export const ObservationDetailViewHeader = memo(
                                   ref: mobileActionsTriggerRef,
                                 })}
                               >
-                                <MoreHorizontal className="icon-base" />
+                                <MoreHorizontal className="icon-base text-icon-foreground" />
                               </Button>
                             )}
                           </DropdownMenu>

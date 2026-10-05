@@ -759,7 +759,7 @@ function RedirectActionButton({
       }}
     >
       {content.label}
-      <ArrowRight className="icon-base ml-1" />
+      <ArrowRight className="icon-base text-icon-foreground ml-1" />
     </Button>
   );
 }
