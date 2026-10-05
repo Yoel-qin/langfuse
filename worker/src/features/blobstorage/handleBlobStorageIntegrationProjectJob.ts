@@ -87,6 +87,7 @@ import {
   buildBlobExportDeprecationNoticeKey,
 } from "./deprecationNotice";
 import { resolveFirstExportStart } from "./firstExportStart";
+import { buildBlobExportObjectPrefix } from "./objectKey";
 
 const BlobExportFormat = {
   JSON_RAW: "json-raw",
@@ -377,6 +378,7 @@ const createBlobStorageService = (
 
 const processBlobStorageExport = async (config: {
   projectId: string;
+  integrationId: string;
   minTimestamp: Date;
   maxTimestamp: Date;
   storageService: StorageService;
@@ -518,7 +520,7 @@ const processBlobStorageExport = async (config: {
           }
           return blobStorageProps.extension;
         })();
-        const filePath = `${config.prefix ?? ""}${config.projectId}/${config.table}/${timestamp}.${extension}`;
+        const filePath = `${buildBlobExportObjectPrefix(config)}${config.table}/${timestamp}.${extension}`;
         const uploadContentType = (() => {
           if (parquetEligible) {
             return "application/vnd.apache.parquet";
@@ -1111,6 +1113,7 @@ const writeBlobExportManifest = async (params: {
   storageService: StorageService;
   prefix?: string;
   projectId: string;
+  integrationId: string;
   exportSource: string;
   minTimestamp: Date;
   maxTimestamp: Date;
@@ -1127,6 +1130,7 @@ const writeBlobExportManifest = async (params: {
   const key = buildBlobExportManifestKey({
     prefix: params.prefix,
     projectId: params.projectId,
+    integrationId: params.integrationId,
     maxTimestamp: params.maxTimestamp,
   });
 
@@ -1151,10 +1155,12 @@ const writeBlobExportDeprecationNotice = async (params: {
   storageService: StorageService;
   prefix?: string;
   projectId: string;
+  integrationId: string;
 }): Promise<void> => {
   const key = buildBlobExportDeprecationNoticeKey({
     prefix: params.prefix,
     projectId: params.projectId,
+    integrationId: params.integrationId,
   });
   try {
     await params.storageService.uploadFile({
@@ -1181,10 +1187,12 @@ const removeBlobExportDeprecationNotice = async (params: {
   storageService: StorageService;
   prefix?: string;
   projectId: string;
+  integrationId: string;
 }): Promise<void> => {
   const key = buildBlobExportDeprecationNoticeKey({
     prefix: params.prefix,
     projectId: params.projectId,
+    integrationId: params.integrationId,
   });
   try {
     await params.storageService.deleteFiles([key]);
@@ -1364,6 +1372,7 @@ export const handleBlobStorageIntegrationProjectJob = async (
 
     const executionConfig = {
       projectId,
+      integrationId: blobStorageIntegration.id,
       minTimestamp,
       maxTimestamp,
       storageService,
@@ -1467,6 +1476,7 @@ export const handleBlobStorageIntegrationProjectJob = async (
       storageService,
       prefix: blobStorageIntegration.prefix || undefined,
       projectId,
+      integrationId: blobStorageIntegration.id,
       exportSource: blobStorageIntegration.exportSource,
       minTimestamp,
       maxTimestamp,
@@ -1480,6 +1490,7 @@ export const handleBlobStorageIntegrationProjectJob = async (
           storageService,
           prefix: blobStorageIntegration.prefix || undefined,
           projectId,
+          integrationId: blobStorageIntegration.id,
         });
       } else if (
         // Gate cleanup on "old enough to have written a notice": otherwise every
@@ -1491,6 +1502,7 @@ export const handleBlobStorageIntegrationProjectJob = async (
           storageService,
           prefix: blobStorageIntegration.prefix || undefined,
           projectId,
+          integrationId: blobStorageIntegration.id,
         });
       }
     }
