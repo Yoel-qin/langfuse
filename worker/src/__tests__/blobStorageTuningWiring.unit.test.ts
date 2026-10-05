@@ -136,7 +136,6 @@ describe("handleBlobStorageIntegrationProjectJob tuning wiring", () => {
 
     expect(prisma.blobStorageIntegration.findFirst).toHaveBeenCalledWith({
       where: { projectId: "project-1", id: "integration-1" },
-      orderBy: { createdAt: "asc" },
     });
     expect(uploadCalls.length).toBeGreaterThan(0);
     for (const call of uploadCalls) {
