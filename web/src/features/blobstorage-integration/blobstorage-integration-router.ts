@@ -28,10 +28,7 @@ import {
 import { randomUUID } from "crypto";
 import { decrypt } from "@langfuse/shared/encryption";
 import { getContextualFeatureFlags } from "@/src/features/feature-flags/utils";
-import {
-  resolveExternalMediaUrl,
-  testExternalMediaObject,
-} from "@/src/features/blobstorage-integration/externalMediaService";
+import { testExternalMediaObject } from "@/src/features/blobstorage-integration/externalMediaService";
 import {
   AnalyticsIntegrationExportSource,
   BlobStorageIntegrationType,
@@ -95,32 +92,6 @@ const assertBlobStorageIntegrationAccess = ({
 };
 
 export const blobStorageIntegrationRouter = createTRPCRouter({
-  resolveExternalMedia: protectedProjectProcedure
-    .input(z.object({ projectId: z.string(), uri: z.string() }))
-    .query(async ({ input, ctx }) => {
-      const isEnabled =
-        ctx.session.environment.enableExperimentalFeatures ||
-        getContextualFeatureFlags(ctx.session.user, {
-          projectId: input.projectId,
-        })?.externalMediaStorage === true;
-      if (!isEnabled) {
-        throw new TRPCError({ code: "NOT_FOUND" });
-      }
-
-      try {
-        return await resolveExternalMediaUrl({
-          prisma: ctx.prisma,
-          projectId: input.projectId,
-          uri: input.uri,
-        });
-      } catch {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "External media is not available",
-        });
-      }
-    }),
-
   testExternalMediaObject: protectedProjectProcedure
     .input(
       z.object({

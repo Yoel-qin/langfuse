@@ -398,22 +398,6 @@ describe("Blob Storage Integration tRPC Router", () => {
     });
   });
 
-  describe("external media resolution", () => {
-    it("does not expose the resolver when the feature flag is disabled", async () => {
-      const { caller, project } = await prepare({
-        externalMediaStorage: false,
-      });
-
-      await expect(
-        caller.blobStorageIntegration.resolveExternalMedia({
-          projectId: project.id,
-          uri: "s3://test-bucket/test/image.png",
-        }),
-      ).rejects.toMatchObject({ code: "NOT_FOUND" });
-      expect(StorageServiceFactory.getInstance).not.toHaveBeenCalled();
-    });
-  });
-
   describe("external media object test", () => {
     it("does not expose object testing when the feature flag is disabled", async () => {
       const { caller, project } = await prepare({
