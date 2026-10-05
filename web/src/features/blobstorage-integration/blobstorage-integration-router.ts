@@ -176,7 +176,9 @@ export const blobStorageIntegrationRouter = createTRPCRouter({
       blobStorageIntegrationFormSchemaBase
         .extend({
           projectId: z.string(),
-          integrationId: z.string().optional(),
+          // null explicitly creates another integration; omission preserves
+          // the one-integration client contract during rolling deployments.
+          integrationId: z.string().nullable().optional(),
           mediaStorageEnabled: z.boolean().optional(),
           // Drop the base schema default so an omitted value preserves the
           // persisted source instead of rewriting it to the legacy default.
@@ -196,10 +198,14 @@ export const blobStorageIntegrationRouter = createTRPCRouter({
           projectId: input.projectId,
         });
 
-        const existingIntegration = input.integrationId
+        const isLegacyRequest = input.integrationId === undefined;
+        const lookupIntegrationId = isLegacyRequest
+          ? input.projectId
+          : input.integrationId;
+        const existingIntegration = lookupIntegrationId
           ? await ctx.prisma.blobStorageIntegration.findFirst({
               where: {
-                id: input.integrationId,
+                id: lookupIntegrationId,
                 projectId: input.projectId,
               },
               select: { createdAt: true, exportSource: true },
@@ -237,7 +243,8 @@ export const blobStorageIntegrationRouter = createTRPCRouter({
         const integration = await upsertBlobStorageIntegration({
           prisma: ctx.prisma,
           projectId,
-          integrationId,
+          integrationId: existingIntegration?.id ?? integrationId ?? undefined,
+          createId: isLegacyRequest ? projectId : undefined,
           createExportSource,
           persistAuditLog: (tx, resourceId) =>
             auditLog(
