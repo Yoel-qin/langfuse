@@ -1207,12 +1207,7 @@ const removeBlobExportDeprecationNotice = async (params: {
 export const handleBlobStorageIntegrationProjectJob = async (
   job: Job<TQueueJobTypes[QueueName.BlobStorageIntegrationProcessingQueue]>,
 ) => {
-  const {
-    projectId: legacyProjectId,
-    integrationId,
-    ownerProjectId,
-  } = job.data.payload;
-  const projectId = ownerProjectId ?? legacyProjectId;
+  const { projectId, integrationId } = job.data.payload;
 
   const span = getCurrentSpan();
   if (span) {
@@ -1233,8 +1228,6 @@ export const handleBlobStorageIntegrationProjectJob = async (
   const blobStorageIntegration = await prisma.blobStorageIntegration.findFirst({
     where: {
       projectId,
-      // Existing rows were migrated with id = projectId. Restrict old queued
-      // jobs to that row so a replacement destination is never selected.
       id: integrationId ?? projectId,
     },
   });
@@ -1568,9 +1561,8 @@ export const handleBlobStorageIntegrationProjectJob = async (
             name: QueueJobs.BlobStorageIntegrationProcessingJob,
             timestamp: new Date(),
             payload: {
-              projectId: blobStorageIntegration.id,
+              projectId,
               integrationId: blobStorageIntegration.id,
-              ownerProjectId: projectId,
             },
           },
           { jobId, removeOnFail: true },

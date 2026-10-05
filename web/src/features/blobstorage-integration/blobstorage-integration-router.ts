@@ -408,9 +408,8 @@ export const blobStorageIntegrationRouter = createTRPCRouter({
             name: QueueJobs.BlobStorageIntegrationProcessingJob,
             timestamp: new Date(),
             payload: {
-              projectId: input.integrationId,
+              projectId: input.projectId,
               integrationId: input.integrationId,
-              ownerProjectId: input.projectId,
             },
           },
           {

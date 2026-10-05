@@ -516,9 +516,8 @@ describe("Blob Storage Integration tRPC Router", () => {
         expect.objectContaining({
           name: QueueJobs.BlobStorageIntegrationProcessingJob,
           payload: {
-            projectId: integration.id,
+            projectId: project.id,
             integrationId: integration.id,
-            ownerProjectId: project.id,
           },
         }),
         expect.objectContaining({
