@@ -700,7 +700,10 @@ if (!nativeBinding) {
 }
 
 module.exports = nativeBinding
+module.exports.EarlyOtelBatch = nativeBinding.EarlyOtelBatch
 module.exports.PreparedEvent = nativeBinding.PreparedEvent
+module.exports.ValidatedOtelJson = nativeBinding.ValidatedOtelJson
 module.exports.encodeClickhouseEvents = nativeBinding.encodeClickhouseEvents
 module.exports.hello = nativeBinding.hello
 module.exports.initTelemetry = nativeBinding.initTelemetry
+module.exports.validateOtelJson = nativeBinding.validateOtelJson
