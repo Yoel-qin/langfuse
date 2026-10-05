@@ -103,8 +103,10 @@ async function handleUpsertBlobStorageIntegration(
   // persisted exportSource when it is omitted (partial PUT), so a stale
   // enriched value is rejected.
   const existingIntegration = await prisma.blobStorageIntegration.findFirst({
-    where: { projectId: validatedData.projectId },
-    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+    where: {
+      id: validatedData.projectId,
+      projectId: validatedData.projectId,
+    },
     select: { id: true, createdAt: true, exportSource: true },
   });
 

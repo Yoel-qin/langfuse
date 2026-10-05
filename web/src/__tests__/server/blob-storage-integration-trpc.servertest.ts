@@ -20,6 +20,7 @@ import {
 } from "@langfuse/shared";
 import { env } from "@/src/env.mjs";
 import { env as sharedEnv } from "@langfuse/shared/src/env";
+import { upsertBlobStorageIntegration } from "@/src/features/blobstorage-integration/service";
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const PRE_CUTOFF = new Date(
@@ -332,6 +333,35 @@ describe("Blob Storage Integration tRPC Router", () => {
         message: expect.stringContaining("already uses this destination"),
       });
     });
+
+    it("rejects concurrent creates for the same export destination", async () => {
+      const { project } = await prepare();
+      const create = () =>
+        upsertBlobStorageIntegration({
+          prisma,
+          projectId: project.id,
+          createExportSource: "EVENTS",
+          data: {
+            ...baseConfig,
+            accessKeyId: baseConfig.accessKeyId,
+            secretAccessKey: baseConfig.secretAccessKey,
+          },
+        });
+
+      const results = await Promise.allSettled([create(), create()]);
+
+      expect(
+        results.filter(({ status }) => status === "fulfilled"),
+      ).toHaveLength(1);
+      expect(
+        results.filter(({ status }) => status === "rejected"),
+      ).toHaveLength(1);
+      await expect(
+        prisma.blobStorageIntegration.count({
+          where: { projectId: project.id },
+        }),
+      ).resolves.toBe(1);
+    });
   });
 
   describe("external media storage feature gate", () => {
@@ -361,6 +391,24 @@ describe("Blob Storage Integration tRPC Router", () => {
       });
 
       expect(integration.mediaStorageEnabled).toBe(true);
+    });
+
+    it("requires a scoped prefix when media storage is enabled", async () => {
+      const { caller, project } = await prepare({
+        externalMediaStorage: true,
+      });
+
+      await expect(
+        caller.blobStorageIntegration.update({
+          projectId: project.id,
+          ...baseConfig,
+          prefix: "",
+          mediaStorageEnabled: true,
+        }),
+      ).rejects.toMatchObject({
+        code: "BAD_REQUEST",
+        message: expect.stringContaining("prefix"),
+      });
     });
 
     it("preserves persisted media storage after the flag is removed", async () => {

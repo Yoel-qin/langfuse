@@ -309,6 +309,7 @@ describe("Blob Storage Integrations API", () => {
       // which only grandfathered (pre-integration-cutoff) rows may carry.
       await prisma.blobStorageIntegration.create({
         data: {
+          id: testProject1Id,
           projectId: testProject1Id,
           type: "S3",
           bucketName: "old-bucket",
@@ -351,6 +352,54 @@ describe("Blob Storage Integrations API", () => {
           where: { projectId: testProject1Id },
         }),
       ).resolves.toBe(1);
+    });
+
+    it("should not overwrite an integration created through the settings UI", async () => {
+      const uiIntegration = await prisma.blobStorageIntegration.create({
+        data: {
+          id: "ui-created-integration",
+          projectId: testProject1Id,
+          type: "S3",
+          bucketName: "ui-bucket",
+          region: "us-east-1",
+          accessKeyId: "ui-key",
+          secretAccessKey: "ui-secret",
+          prefix: "ui/",
+          exportFrequency: "daily",
+          enabled: true,
+          forcePathStyle: false,
+          fileType: "PARQUET",
+          exportMode: "FULL_HISTORY",
+          exportSource: "EVENTS",
+        },
+      });
+
+      const response = await makeZodVerifiedAPICall(
+        BlobStorageIntegrationResponseSchema,
+        "PUT",
+        "/api/public/integrations/blob-storage",
+        {
+          ...validBlobStorageConfig,
+          projectId: testProject1Id,
+          bucketName: "api-bucket",
+          prefix: "api/",
+        },
+        createBasicAuthHeader(testApiKey, testApiSecretKey),
+        200,
+      );
+
+      expect(response.body.id).toBe(testProject1Id);
+      await expect(
+        prisma.blobStorageIntegration.findUniqueOrThrow({
+          where: { id: uiIntegration.id },
+          select: { bucketName: true, prefix: true },
+        }),
+      ).resolves.toEqual({ bucketName: "ui-bucket", prefix: "ui/" });
+      await expect(
+        prisma.blobStorageIntegration.count({
+          where: { projectId: testProject1Id },
+        }),
+      ).resolves.toBe(2);
     });
 
     it("should validate required fields", async () => {
@@ -615,6 +664,7 @@ describe("Blob Storage Integrations API", () => {
       // column default, which only grandfathered rows may carry.
       await prisma.blobStorageIntegration.create({
         data: {
+          id: testProject1Id,
           projectId: testProject1Id,
           type: "S3",
           bucketName: "initial-bucket",
@@ -687,6 +737,7 @@ describe("Blob Storage Integrations API", () => {
     ) =>
       prisma.blobStorageIntegration.create({
         data: {
+          id: testProject1Id,
           projectId: testProject1Id,
           type: "S3",
           bucketName: "seed-bucket",
@@ -1167,6 +1218,7 @@ describe("Blob Storage Integrations API", () => {
       // Pre-seed an OBSERVATIONS_V2 row with a custom field-group subset
       await prisma.blobStorageIntegration.create({
         data: {
+          id: testProject1Id,
           projectId: testProject1Id,
           type: "S3",
           bucketName: "initial-bucket",
@@ -1214,6 +1266,7 @@ describe("Blob Storage Integrations API", () => {
       // Pre-seed an OBSERVATIONS_V2 row with a custom field-group subset
       await prisma.blobStorageIntegration.create({
         data: {
+          id: testProject1Id,
           projectId: testProject1Id,
           type: "S3",
           bucketName: "initial-bucket",
@@ -1261,6 +1314,7 @@ describe("Blob Storage Integrations API", () => {
       // Pre-seed an OBSERVATIONS_V2 row with a custom field-group subset
       await prisma.blobStorageIntegration.create({
         data: {
+          id: testProject1Id,
           projectId: testProject1Id,
           type: "S3",
           bucketName: "initial-bucket",
@@ -1536,6 +1590,7 @@ describe("Blob Storage Integrations API", () => {
         // pre-integration-cutoff rows.
         await prisma.blobStorageIntegration.create({
           data: {
+            id: testProject1Id,
             projectId: testProject1Id,
             type: "S3",
             bucketName: "seed-bucket",
@@ -1685,6 +1740,7 @@ describe("Blob Storage Integrations API", () => {
         });
         await prisma.blobStorageIntegration.create({
           data: {
+            id: testProject1Id,
             projectId: testProject1Id,
             type: "S3",
             bucketName: "test-bucket",
@@ -1732,6 +1788,7 @@ describe("Blob Storage Integrations API", () => {
     const seedIntegration = (createdAt: Date) =>
       prisma.blobStorageIntegration.create({
         data: {
+          id: testProject1Id,
           projectId: testProject1Id,
           type: "S3",
           bucketName: "existing-bucket",
@@ -1876,6 +1933,7 @@ describe("Blob Storage Integrations API", () => {
     const seedParquetIntegration = () =>
       prisma.blobStorageIntegration.create({
         data: {
+          id: testProject1Id,
           projectId: testProject1Id,
           type: "S3",
           bucketName: "test-bucket",
