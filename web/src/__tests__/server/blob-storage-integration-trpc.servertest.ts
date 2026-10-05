@@ -306,11 +306,13 @@ describe("Blob Storage Integration tRPC Router", () => {
 
       const first = await caller.blobStorageIntegration.update({
         projectId: project.id,
+        integrationId: null,
         ...baseConfig,
         bucketName: "first-bucket",
       });
       const second = await caller.blobStorageIntegration.update({
         projectId: project.id,
+        integrationId: null,
         ...baseConfig,
         bucketName: "second-bucket",
       });
@@ -329,6 +331,54 @@ describe("Blob Storage Integration tRPC Router", () => {
           action: "update",
         }),
       ).resolves.not.toBeNull();
+    });
+
+    it("updates the migrated legacy row for an id-less pre-deploy request", async () => {
+      const { caller, project } = await prepare();
+      const encryptedSecret = encrypt("persisted-secret");
+      await prisma.blobStorageIntegration.create({
+        data: {
+          id: project.id,
+          projectId: project.id,
+          type: "S3",
+          bucketName: "legacy-bucket",
+          region: "us-east-1",
+          accessKeyId: "legacy-access-key",
+          secretAccessKey: encryptedSecret,
+          prefix: "legacy/",
+          exportFrequency: "daily",
+          enabled: true,
+          forcePathStyle: false,
+          fileType: "JSONL",
+          exportMode: "FULL_HISTORY",
+          exportSource: "EVENTS",
+        },
+      });
+
+      const updated = await caller.blobStorageIntegration.update({
+        projectId: project.id,
+        ...baseConfig,
+        bucketName: "updated-legacy-bucket",
+        secretAccessKey: null,
+      });
+
+      expect(updated.id).toBe(project.id);
+      await expect(
+        prisma.blobStorageIntegration.findMany({
+          where: { projectId: project.id },
+          select: {
+            id: true,
+            bucketName: true,
+            secretAccessKey: true,
+          },
+        }),
+      ).resolves.toEqual([
+        {
+          id: project.id,
+          bucketName: "updated-legacy-bucket",
+          secretAccessKey: encryptedSecret,
+        },
+      ]);
     });
   });
 
