@@ -20,6 +20,16 @@ import {
 } from "@langfuse/shared";
 import { env } from "@/src/env.mjs";
 import { env as sharedEnv } from "@langfuse/shared/src/env";
+import { auditLog } from "@/src/features/audit-logs/server";
+
+vi.mock("@/src/features/audit-logs/server", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@/src/features/audit-logs/server")>();
+  return {
+    ...actual,
+    auditLog: vi.fn(actual.auditLog),
+  };
+});
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const PRE_CUTOFF = new Date(
@@ -319,6 +329,53 @@ describe("Blob Storage Integration tRPC Router", () => {
           projectId: project.id,
           integrationId: second.id,
           action: "update",
+        }),
+      ).resolves.not.toBeNull();
+    });
+  });
+
+  describe("atomic audit logging", () => {
+    it("rolls back an update when audit persistence fails", async () => {
+      const { caller, project } = await prepare();
+      const integration = await createIntegration({ projectId: project.id });
+      vi.mocked(auditLog).mockRejectedValueOnce(
+        new Error("audit log unavailable"),
+      );
+
+      await expect(
+        caller.blobStorageIntegration.update({
+          projectId: project.id,
+          integrationId: integration.id,
+          ...baseConfig,
+          bucketName: "updated-bucket",
+        }),
+      ).rejects.toMatchObject({ code: "INTERNAL_SERVER_ERROR" });
+
+      await expect(
+        prisma.blobStorageIntegration.findUniqueOrThrow({
+          where: { id: integration.id },
+          select: { bucketName: true },
+        }),
+      ).resolves.toEqual({ bucketName: "test-bucket" });
+    });
+
+    it("rolls back a delete when audit persistence fails", async () => {
+      const { caller, project } = await prepare();
+      const integration = await createIntegration({ projectId: project.id });
+      vi.mocked(auditLog).mockRejectedValueOnce(
+        new Error("audit log unavailable"),
+      );
+
+      await expect(
+        caller.blobStorageIntegration.delete({
+          projectId: project.id,
+          integrationId: integration.id,
+        }),
+      ).rejects.toMatchObject({ code: "INTERNAL_SERVER_ERROR" });
+
+      await expect(
+        prisma.blobStorageIntegration.findUnique({
+          where: { id: integration.id },
         }),
       ).resolves.not.toBeNull();
     });

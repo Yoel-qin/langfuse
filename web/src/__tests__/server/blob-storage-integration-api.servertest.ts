@@ -2,9 +2,14 @@ import {
   makeZodVerifiedAPICall,
   makeAPICall,
 } from "@/src/__tests__/test-utils";
+import blobStorageIntegrationsHandler from "@/src/pages/api/public/integrations/blob-storage";
+import blobStorageIntegrationHandler from "@/src/pages/api/public/integrations/blob-storage/[id]";
+import { auditLog } from "@/src/features/audit-logs/server";
 import { prisma } from "@langfuse/shared/src/db";
 import { z } from "zod";
 import { randomUUID } from "crypto";
+import { createMocks } from "node-mocks-http";
+import type { NextApiRequest, NextApiResponse } from "next";
 import {
   createAndAddApiKeysToDb,
   createBasicAuthHeader,
@@ -15,6 +20,15 @@ import {
   LEGACY_BLOB_EXPORTER_CUTOFF,
 } from "@langfuse/shared";
 import { decrypt } from "@langfuse/shared/encryption";
+
+vi.mock("@/src/features/audit-logs/server", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@/src/features/audit-logs/server")>();
+  return {
+    ...actual,
+    auditLog: vi.fn(actual.auditLog),
+  };
+});
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const PRE_CUTOFF = new Date(
@@ -302,6 +316,31 @@ describe("Blob Storage Integrations API", () => {
       });
       expect(savedIntegration).toBeDefined();
       expect(savedIntegration?.bucketName).toBe("test-bucket");
+    });
+
+    it("rolls back a create when audit persistence fails", async () => {
+      vi.mocked(auditLog).mockRejectedValueOnce(
+        new Error("audit log unavailable"),
+      );
+      const { req, res } = createMocks<NextApiRequest, NextApiResponse>({
+        method: "PUT",
+        headers: {
+          authorization: createBasicAuthHeader(testApiKey, testApiSecretKey),
+        },
+        body: {
+          ...validBlobStorageConfig,
+          projectId: testProject1Id,
+        },
+      });
+
+      await blobStorageIntegrationsHandler(req, res);
+
+      expect(res._getStatusCode()).toBe(500);
+      await expect(
+        prisma.blobStorageIntegration.count({
+          where: { projectId: testProject1Id },
+        }),
+      ).resolves.toBe(0);
     });
 
     it("should handle concurrent creates idempotently", async () => {
@@ -1490,6 +1529,28 @@ describe("Blob Storage Integrations API", () => {
         where: auditLogWhere,
       });
       expect(auditLogCountAfter).toBe(auditLogCountBefore + 1);
+    });
+
+    it("rolls back a delete when audit persistence fails", async () => {
+      vi.mocked(auditLog).mockRejectedValueOnce(
+        new Error("audit log unavailable"),
+      );
+      const { req, res } = createMocks<NextApiRequest, NextApiResponse>({
+        method: "DELETE",
+        query: { id: testIntegrationId },
+        headers: {
+          authorization: createBasicAuthHeader(testApiKey, testApiSecretKey),
+        },
+      });
+
+      await blobStorageIntegrationHandler(req, res);
+
+      expect(res._getStatusCode()).toBe(500);
+      await expect(
+        prisma.blobStorageIntegration.findUnique({
+          where: { id: testIntegrationId },
+        }),
+      ).resolves.not.toBeNull();
     });
 
     it("should return 404 for non-existent integration", async () => {
