@@ -503,7 +503,11 @@ function JsonPrettyTable({
               }}
               className="text-muted-foreground hover:text-foreground h-4 w-4 p-0 hover:bg-transparent"
             >
-              {row.getIsExpanded() ? <ChevronDown /> : <ChevronRight />}
+              {row.getIsExpanded() ? (
+                <ChevronDown className="icon-base" />
+              ) : (
+                <ChevronRight className="icon-base" />
+              )}
             </Button>
           ) : null}
         </div>
@@ -1383,7 +1387,11 @@ export function PrettyJsonView(props: {
           className="text-muted-foreground hover:text-foreground hover:bg-transparent"
           title={allRowsExpanded ? "Collapse all rows" : "Expand all rows"}
         >
-          {allRowsExpanded ? <FoldVertical /> : <UnfoldVertical />}
+          {allRowsExpanded ? (
+            <FoldVertical className="icon-sm" />
+          ) : (
+            <UnfoldVertical className="icon-sm" />
+          )}
         </Button>
       )}
       {!shouldUseTableView && !isMarkdownMode && !largeStringValue && (
@@ -1394,7 +1402,11 @@ export function PrettyJsonView(props: {
           className="text-muted-foreground hover:text-foreground hover:bg-transparent"
           title={jsonIsCollapsed ? "Expand all" : "Collapse all"}
         >
-          {jsonIsCollapsed ? <UnfoldVertical /> : <FoldVertical />}
+          {jsonIsCollapsed ? (
+            <UnfoldVertical className="icon-sm" />
+          ) : (
+            <FoldVertical className="icon-sm" />
+          )}
         </Button>
       )}
     </>

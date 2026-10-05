@@ -244,7 +244,7 @@ export function SkillFileExplorer({
           aria-label={`Create new ${label}`}
           disabled={moveDisabled}
         >
-          <Check />
+          <Check className="icon-base" />
         </Button>
         <Button
           type="button"
@@ -253,7 +253,7 @@ export function SkillFileExplorer({
           aria-label={`Cancel new ${label}`}
           onClick={() => setPendingEntry(null)}
         >
-          <X />
+          <X className="icon-base" />
         </Button>
       </form>
     );
@@ -408,7 +408,7 @@ export function SkillFileExplorer({
                       disabled={moveDisabled}
                       onClick={() => startEntry("file")}
                     >
-                      <FilePlus2 />
+                      <FilePlus2 className="icon-base" />
                     </Button>
                     <Button
                       type="button"
@@ -419,7 +419,7 @@ export function SkillFileExplorer({
                       disabled={moveDisabled}
                       onClick={() => startEntry("folder")}
                     >
-                      <FolderPlus />
+                      <FolderPlus className="icon-base" />
                     </Button>
                   </div>
                 ) : null}
@@ -592,7 +592,7 @@ function DraggableSkillFile({
           onClick={onDelete}
           className="mr-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 md:focus:opacity-100"
         >
-          <Trash2 />
+          <Trash2 className="icon-base" />
         </Button>
       ) : null}
     </div>
@@ -679,7 +679,7 @@ function DraggableSkillFolder({
             onClick={onDelete}
             className="mr-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 md:focus:opacity-100"
           >
-            <Trash2 />
+            <Trash2 className="icon-base" />
           </Button>
         ) : null}
       </div>

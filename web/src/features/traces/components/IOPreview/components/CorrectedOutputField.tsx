@@ -260,7 +260,7 @@ export function CorrectedOutputField({
                       className="hover:bg-border"
                       title="View diff between original and corrected output"
                     >
-                      <FileDiff />
+                      <FileDiff className="icon-sm" />
                     </Button>
                     {!isEditing && (
                       <Button
@@ -271,7 +271,7 @@ export function CorrectedOutputField({
                         className="hover:bg-border"
                         title="Edit corrected output"
                       >
-                        <Pencil />
+                        <Pencil className="icon-sm" />
                       </Button>
                     )}
                     <Button
@@ -282,7 +282,7 @@ export function CorrectedOutputField({
                       className="hover:bg-border"
                       title="Delete corrected output"
                     >
-                      <Trash />
+                      <Trash className="icon-sm" />
                     </Button>
                   </>
                 )}
