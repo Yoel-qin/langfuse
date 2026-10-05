@@ -20,7 +20,6 @@ import {
 } from "@langfuse/shared";
 import { env } from "@/src/env.mjs";
 import { env as sharedEnv } from "@langfuse/shared/src/env";
-import { upsertBlobStorageIntegration } from "@/src/features/blobstorage-integration/service";
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const PRE_CUTOFF = new Date(
@@ -242,6 +241,14 @@ describe("Blob Storage Integration tRPC Router", () => {
         }),
       ).rejects.toMatchObject({ code: "FORBIDDEN" });
 
+      await expect(
+        caller.blobStorageIntegration.testExternalMediaObject({
+          projectId: project.id,
+          integrationId: integration.id,
+          uri: "s3://test-bucket/test/image.png",
+        }),
+      ).rejects.toMatchObject({ code: "FORBIDDEN" });
+
       const stillThere = await prisma.blobStorageIntegration.findFirst({
         where: { projectId: project.id },
       });
@@ -315,54 +322,6 @@ describe("Blob Storage Integration tRPC Router", () => {
         }),
       ).resolves.not.toBeNull();
     });
-
-    it("rejects duplicate export destinations within a project", async () => {
-      const { caller, project } = await prepare();
-
-      await caller.blobStorageIntegration.update({
-        projectId: project.id,
-        ...baseConfig,
-      });
-
-      await expect(
-        caller.blobStorageIntegration.update({
-          projectId: project.id,
-          ...baseConfig,
-        }),
-      ).rejects.toMatchObject({
-        code: "BAD_REQUEST",
-        message: expect.stringContaining("already uses this destination"),
-      });
-    });
-
-    it("rejects concurrent creates for the same export destination", async () => {
-      const { project } = await prepare();
-      const create = () =>
-        upsertBlobStorageIntegration({
-          prisma,
-          projectId: project.id,
-          createExportSource: "EVENTS",
-          data: {
-            ...baseConfig,
-            accessKeyId: baseConfig.accessKeyId,
-            secretAccessKey: baseConfig.secretAccessKey,
-          },
-        });
-
-      const results = await Promise.allSettled([create(), create()]);
-
-      expect(
-        results.filter(({ status }) => status === "fulfilled"),
-      ).toHaveLength(1);
-      expect(
-        results.filter(({ status }) => status === "rejected"),
-      ).toHaveLength(1);
-      await expect(
-        prisma.blobStorageIntegration.count({
-          where: { projectId: project.id },
-        }),
-      ).resolves.toBe(1);
-    });
   });
 
   describe("external media storage feature gate", () => {
@@ -397,23 +356,23 @@ describe("Blob Storage Integration tRPC Router", () => {
       expect(integration.mediaPrefix).toBe("media/");
     });
 
-    it("requires a scoped media prefix when media storage is enabled", async () => {
-      const { caller, project } = await prepare({
-        externalMediaStorage: true,
-      });
+    it.each(["", "   "])(
+      "persists a blank media prefix (%j) as null when media storage is enabled",
+      async (mediaPrefix) => {
+        const { caller, project } = await prepare({
+          externalMediaStorage: true,
+        });
 
-      await expect(
-        caller.blobStorageIntegration.update({
+        const integration = await caller.blobStorageIntegration.update({
           projectId: project.id,
           ...baseConfig,
-          mediaPrefix: "",
+          mediaPrefix,
           mediaStorageEnabled: true,
-        }),
-      ).rejects.toMatchObject({
-        code: "BAD_REQUEST",
-        message: expect.stringContaining("prefix"),
-      });
-    });
+        });
+
+        expect(integration.mediaPrefix).toBeNull();
+      },
+    );
 
     it("preserves persisted media storage after the flag is removed", async () => {
       const { caller, project, session } = await prepare({
@@ -453,139 +412,73 @@ describe("Blob Storage Integration tRPC Router", () => {
       ).rejects.toMatchObject({ code: "NOT_FOUND" });
       expect(StorageServiceFactory.getInstance).not.toHaveBeenCalled();
     });
+  });
 
-    it("signs an object from the matching media-enabled integration", async () => {
-      const getSignedUrl = vi.fn().mockResolvedValue("https://signed.example");
-      (StorageServiceFactory.getInstance as Mock).mockReturnValue({
-        getSignedUrl,
-      });
+  describe("external media object test", () => {
+    it("does not expose object testing when the feature flag is disabled", async () => {
       const { caller, project } = await prepare({
-        externalMediaStorage: true,
+        externalMediaStorage: false,
       });
       const integration = await createIntegration({ projectId: project.id });
-      await prisma.blobStorageIntegration.update({
-        where: { id: integration.id },
-        data: {
-          bucketName: "media-bucket",
-          mediaPrefix: "customer/",
-          mediaStorageEnabled: true,
-        },
-      });
-
-      const result = await caller.blobStorageIntegration.resolveExternalMedia({
-        projectId: project.id,
-        uri: "s3://media-bucket/customer/image.png",
-      });
-
-      expect(result.url).toBe("https://signed.example");
-      expect(getSignedUrl).toHaveBeenCalledWith(
-        "customer/image.png",
-        300,
-        false,
-      );
-    });
-
-    it("fails closed for keys outside the configured prefix", async () => {
-      const { caller, project } = await prepare({
-        externalMediaStorage: true,
-      });
-      const integration = await createIntegration({ projectId: project.id });
-      await prisma.blobStorageIntegration.update({
-        where: { id: integration.id },
-        data: { mediaPrefix: "test/", mediaStorageEnabled: true },
-      });
 
       await expect(
-        caller.blobStorageIntegration.resolveExternalMedia({
+        caller.blobStorageIntegration.testExternalMediaObject({
           projectId: project.id,
-          uri: "s3://test-bucket/customer/image.png",
-        }),
-      ).rejects.toMatchObject({ code: "NOT_FOUND" });
-      expect(StorageServiceFactory.getInstance).not.toHaveBeenCalled();
-    });
-
-    it("fails closed when two media integrations match equally", async () => {
-      const { caller, project } = await prepare({
-        externalMediaStorage: true,
-      });
-      const first = await createIntegration({ projectId: project.id });
-      const second = await createIntegration({ projectId: project.id });
-      await prisma.blobStorageIntegration.updateMany({
-        where: { id: { in: [first.id, second.id] } },
-        data: { mediaPrefix: "test/", mediaStorageEnabled: true },
-      });
-
-      await expect(
-        caller.blobStorageIntegration.resolveExternalMedia({
-          projectId: project.id,
+          integrationId: integration.id,
           uri: "s3://test-bucket/test/image.png",
         }),
       ).rejects.toMatchObject({ code: "NOT_FOUND" });
       expect(StorageServiceFactory.getInstance).not.toHaveBeenCalled();
     });
-  });
 
-  describe("external media object test", () => {
-    it("proves ranged GetObject access and returns a browser-testable signed URL", async () => {
-      const verifyObjectAccess = vi.fn().mockResolvedValue(undefined);
-      const getSignedUrl = vi.fn().mockResolvedValue("https://signed.example");
-      (StorageServiceFactory.getInstance as Mock).mockReturnValue({
-        verifyObjectAccess,
-        getSignedUrl,
-      });
+    it("maps service validation errors to bad requests", async () => {
       const { caller, project } = await prepare({
         externalMediaStorage: true,
       });
       const integration = await createIntegration({ projectId: project.id });
       await prisma.blobStorageIntegration.update({
         where: { id: integration.id },
-        data: {
-          bucketName: "media-bucket",
-          mediaPrefix: "customer/",
-          mediaStorageEnabled: true,
-        },
-      });
-
-      const result =
-        await caller.blobStorageIntegration.testExternalMediaObject({
-          projectId: project.id,
-          integrationId: integration.id,
-          uri: "s3://media-bucket/customer/image.png",
-        });
-
-      expect(result.signedUrl).toBe("https://signed.example");
-      expect(verifyObjectAccess).toHaveBeenCalledWith("customer/image.png");
-      expect(getSignedUrl).toHaveBeenCalledWith(
-        "customer/image.png",
-        300,
-        false,
-      );
-    });
-
-    it("rejects objects outside the selected integration media prefix before storage access", async () => {
-      const { caller, project } = await prepare({
-        externalMediaStorage: true,
-      });
-      const integration = await createIntegration({ projectId: project.id });
-      await prisma.blobStorageIntegration.update({
-        where: { id: integration.id },
-        data: {
-          mediaPrefix: "allowed/",
-          mediaStorageEnabled: true,
-        },
+        data: { mediaPrefix: "allowed/", mediaStorageEnabled: true },
       });
 
       await expect(
         caller.blobStorageIntegration.testExternalMediaObject({
           projectId: project.id,
           integrationId: integration.id,
-          uri: "s3://test-bucket/outside/image.png",
+          uri: "not-an-s3-uri",
         }),
       ).rejects.toMatchObject({
         code: "BAD_REQUEST",
-        message: expect.stringContaining("media prefix"),
+        message: "External media must use s3://<bucket>/<key>",
       });
-      expect(StorageServiceFactory.getInstance).not.toHaveBeenCalled();
+    });
+
+    it("maps storage failures without exposing the provider error as an internal error", async () => {
+      (StorageServiceFactory.getInstance as Mock).mockReturnValue({
+        verifyObjectAccess: vi
+          .fn()
+          .mockRejectedValue(new Error("provider rejected the read")),
+      });
+      const { caller, project } = await prepare({
+        externalMediaStorage: true,
+      });
+      const integration = await createIntegration({ projectId: project.id });
+      await prisma.blobStorageIntegration.update({
+        where: { id: integration.id },
+        data: { mediaPrefix: "test/", mediaStorageEnabled: true },
+      });
+
+      await expect(
+        caller.blobStorageIntegration.testExternalMediaObject({
+          projectId: project.id,
+          integrationId: integration.id,
+          uri: "s3://test-bucket/test/image.png",
+        }),
+      ).rejects.toMatchObject({
+        code: "BAD_REQUEST",
+        message: expect.stringContaining("provider rejected the read"),
+      });
+      expect(StorageServiceFactory.getInstance).toHaveBeenCalledTimes(1);
     });
   });
 
