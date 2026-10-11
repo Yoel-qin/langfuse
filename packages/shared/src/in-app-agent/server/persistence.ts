@@ -1,4 +1,3 @@
-/* eslint-disable @repo/no-exotic-operators */
 import { compactEvents } from "@ag-ui/client";
 import { EventType } from "@ag-ui/core";
 
@@ -1242,7 +1241,9 @@ export function createConversationMessageAccumulator(
       };
 
       draft.content += getString(event, "delta") ?? "";
-      draft.runId ??= runId;
+      if (draft.runId === undefined) {
+        draft.runId = runId;
+      }
       textDrafts.set(messageId, draft);
 
       return upsertMessage({
@@ -1269,7 +1270,9 @@ export function createConversationMessageAccumulator(
 
       if (draft) {
         draft.content += delta;
-        draft.runId ??= runId;
+        if (draft.runId === undefined) {
+          draft.runId = runId;
+        }
         return upsertMessage({
           id: draft.id,
           role: "assistant",

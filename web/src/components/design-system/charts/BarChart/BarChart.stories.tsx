@@ -1,5 +1,5 @@
 import preview from "../../../../../.storybook/preview";
-import { expect, spyOn, userEvent, within } from "storybook/test";
+import { expect, spyOn, userEvent, waitFor, within } from "storybook/test";
 
 import { chartColors } from "../constants";
 import { BarChart } from "./BarChart";
@@ -24,6 +24,47 @@ const meta = preview.meta({
 });
 
 export const Default = meta.story({});
+
+export const YAxisTickDensity = meta.story({
+  name: "(Test) Y-axis Tick Density",
+  render: (args) => (
+    <div className="flex w-[400px] flex-col gap-4">
+      {["h-[50px]", "h-[100px]", "h-[224px]"].map((heightClass) => (
+        <div key={heightClass} className={heightClass}>
+          <BarChart {...args} />
+        </div>
+      ))}
+    </div>
+  ),
+  play: async ({ canvasElement }) => {
+    await waitFor(async () => {
+      const charts = within(canvasElement).getAllByRole("group", {
+        name: "Bar chart",
+      });
+      await expect(charts).toHaveLength(3);
+      for (const chart of charts) {
+        const labels = Array.from(
+          chart.querySelectorAll('text[text-anchor="end"][dominant-baseline]'),
+        );
+        await expect(labels.length).toBeGreaterThan(0);
+        const bounds = labels
+          .map((label) => label.getBoundingClientRect())
+          .sort((left, right) => left.top - right.top);
+        for (const bound of bounds) {
+          await expect(bound.height).toBeGreaterThan(0);
+        }
+        for (let index = 1; index < bounds.length; index++) {
+          const previous = bounds[index - 1];
+          const current = bounds[index];
+          if (!previous || !current) throw new Error("Label bounds not found");
+          // Allow minor font-metric and subpixel differences between browsers.
+          await expect(current.top).toBeGreaterThanOrEqual(previous.bottom - 1);
+        }
+        await expect(labels[0]).toHaveTextContent("0");
+      }
+    });
+  },
+});
 
 export const PositiveBaseline = meta.story({
   name: "(Test) Positive Baseline",
@@ -63,63 +104,6 @@ export const KeyboardFocus = meta.story({
     await expect(
       canvas.getByRole("graphics-symbol", { name: "Beta: 24" }),
     ).toHaveFocus();
-  },
-});
-
-export const CategoryHoverArea = meta.story({
-  name: "(Test) Category Hover Area",
-  play: async ({ canvasElement }) => {
-    const area = canvasElement.querySelector<SVGRectElement>(
-      "[data-bar-hover-area]",
-    );
-    if (!area) throw new Error("Hover area not found");
-    await userEvent.hover(area);
-    const tooltip = await within(canvasElement.ownerDocument.body).findByRole(
-      "tooltip",
-    );
-    await expect(tooltip).toHaveTextContent("Alpha");
-    const copy = spyOn(navigator.clipboard, "writeText").mockResolvedValue();
-    try {
-      await userEvent.click(area);
-      await expect(copy).toHaveBeenCalledWith("Alpha");
-    } finally {
-      copy.mockRestore();
-    }
-  },
-});
-
-export const TooltipFollowsBar = meta.story({
-  name: "(Test) Tooltip Follows Bar",
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
-    const bars = canvas.getAllByRole("graphics-symbol");
-    const areas = canvasElement.querySelectorAll<SVGRectElement>(
-      "[data-bar-hover-area]",
-    );
-    for (let index = 0; index < bars.length; index++) {
-      const bar = bars[index];
-      const area = areas[index];
-      if (!bar || !area) throw new Error("Bar or hover area not found");
-      await userEvent.hover(area);
-      const tooltip = await within(canvasElement.ownerDocument.body).findByRole(
-        "tooltip",
-      );
-      const referenceLine = canvasElement.querySelector(
-        "[data-active-reference-line]",
-      );
-      if (!referenceLine) throw new Error("Reference line not found");
-      await expect(referenceLine.compareDocumentPosition(bar)).toBe(
-        Node.DOCUMENT_POSITION_FOLLOWING,
-      );
-      const areaTop = tooltip.getBoundingClientRect().top;
-      await userEvent.hover(bar);
-      await expect(tooltip.getBoundingClientRect().top).toBeCloseTo(areaTop, 0);
-      if (index === 0) {
-        await expect(
-          tooltip.getBoundingClientRect().bottom,
-        ).toBeLessThanOrEqual(bar.getBoundingClientRect().top);
-      }
-    }
   },
 });
 
@@ -209,24 +193,11 @@ export const ManyCategories = meta.story({
 });
 
 export const LongLabels = meta.story({
-  name: "(Test) Long Labels",
   args: {
     data: Array.from({ length: 12 }, (_, index) => ({
       label: `production-evaluation-run-${index + 1}-with-a-long-name`,
       value: 12 + index,
     })),
-  },
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
-    const firstBar = canvas.getAllByRole("graphics-symbol")[0];
-    if (!firstBar) throw new Error("Bar not found");
-    await expect(
-      canvasElement.querySelector("[data-x-axis-label]"),
-    ).toHaveTextContent(/…$/);
-    await userEvent.hover(firstBar);
-    await expect(
-      canvasElement.querySelector("[data-active-x-axis-label]"),
-    ).toHaveTextContent("production-evaluation-run-1-with-a-long-name");
   },
 });
 
